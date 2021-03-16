@@ -20,44 +20,43 @@ Application developers building microservices on Kubernetes quickly encounter tw
 * Slow feedback loops. Once a code change is made, it must be deployed to Kubernetes to be tested. This requires a container build, push to a container registry, and deployment to Kubernetes. This adds minutes to every code iteration.
 * Insufficient memory and CPU locally. Developers attempt to speed up the feedback loop by running Kubernetes locally with minikube or equivalent. However, resource-hungry applications quickly exceed the compute and memory available locally.
 
-This article begins with a brief review of the big-picture continuous development workflows for kubernetes. The focus then shifts to [Telepresence](https://www.getambassador.io/products/telepresence/), a Cloud-Native Computing Foundation project that [addresses these problems](https://www.getambassador.io/use-case/local-kubernetes-development/). Finally, we configure Telepresence step-by-step. The steps should work on any kubernetes setup.
-
+This article begins with a brief review of the big-picture continuous development workflows for kubernetes. The focus then shifts to [Telepresence](https://www.getambassador.io/products/telepresence/), a Cloud-Native Computing Foundation project that [addresses these problems](https://www.getambassador.io/use-case/local-kubernetes-development/). Finally, we configure Telepresence step-by-step. The steps should work on any Kubernetes setup.
 
 ## Continuous Development Workflows - Big Picture
 
-An example workflow to go from code to deployment on kubernetes is as follows.
-* Commit code to a dev branch.
-* Build container image and associated manifests. This can be triggered manually or through a continuous integration (CI) pipeline.
-* Deploy manifests to kubernetes. The tool for this can be push-based (eg. Github Actions) or pull-based (eg. ArgoCD).
+Deploying code to Kubernetes requires multiple steps. A typical workflow includes:
+
+* Committing code to a dev branch.
+* Building a container image and associated manifests. This can be triggered manually or through a continuous integration (CI) pipeline.
+* Deploy manifests and container to Kubernetes. The tool for this can be push-based (e.g., [GitHub Actions](https://github.com/features/actions)) or pull-based (e.g., [ArgoCD](https://www.getambassador.io/products/argo/)).
 * Test/Troubleshoot the new version of application.
 * Submit a pull request (PR) to release branch. Repeat. 
 
-That is a lot of steps to test a code change. It is fine for release branch, where the changes are through PR and rest of the process is automated. For developers, the whole process has been simplied for kubernetes. From a big picture standpoint, there are 3 different approaches for continuous deployment. Most users end up picking a mix of these.
+
+This is a lot of steps for a single code changes. For a pull request on a release branch, this overhead is generally not a problem. For developers, the latency introduced into their daily development workflow is an enormous drain on productivity. Thus, for development, there are three different approaches developers have adopted for Kubernetes. Most users pick a mix of these approaches.
 
 ### CI/CD for Production
-This is almost universal in use. The names of the tools differ. The whole idea is that Git is the source of truth. Processing starts after code is committed to Git. Once container images are built, those are stored in registry. 
+
+Virtually every organization uses CI/CD for deploying into production. The names of the tools differ. The whole idea is that Git is the source of truth. Processing starts after code is committed to Git. Once container images are built, those are stored in registry. 
 ![Production CI/CD pipeline](https://imgur.com/vlWprX2.jpg)
 
-Most users tend to use tools that suit them most. Note that some tools (eg. Flux, ArgoCD) are exclusively for kubernetes, whereas most developers have a mixed environment. If you are starting new on kubernetes, it makes sense to use a GitOps operator (eg. ArgoCD) for deployment.
+Most users tend to use tools that suit them most. Note that some tools (e.g., Flux, Argo CD) are exclusively for Kubernetes, whereas most developers have a mixed environment. If you are starting new on Kubernetes, it makes sense to use a GitOps operator such as Argo CD for deployment.
 
 ### CI/CD for Development
-Imagine if you're working off a development branch, and constantly testing code many times in a day. Waiting for the image to built and run is a waste of development time. What if your laptop becomes the source of truth for the code? Skaffold does the same. 
+Imagine if you're working off a development branch, and constantly testing code many times in a day. Waiting for the image to built and run is a waste of development time. What if your laptop becomes the source of truth for the code? [Skaffold](https://skaffold.dev/) does the same. 
 
 ![Developer CI/CD pipeline](https://imgur.com/O4pfbQO.jpg)
 
 Instead of a CI/CD pipeline running off Git commit, Skaffold allows you to manually or automatically build and deploy modified code to the kubernetes cluster. Moreover, it enables you to troubleshoot the new service without having to use another set of commands. 
 
-Note that you do not want to run skaffold on your production cluster, for the simple reason that the use case is targeted for development.
-
+Note that you do not want to run Skaffold on your production cluster, as Skaffold is designed for development use cases.
 
 ### Rapid Iteration for Development
 With Skaffold, you still had to go through the process of building the image, and uploading to the cluster (and/or registry). Imagine if there was a way to not even upload the new image to the cluster. Instead if you could test the modified code by running the container image on your laptop. Basically your laptop becomes extended part of the cluster.
 
 ![Developer Agile pipeline](https://imgur.com/XaREP4y.jpg)
 
-This works for production and development clusters, and for both local and remote clusters. Telepresence enables this workflow.
-
-The rest of this article will focus on Telepresence, which enables developers to do rapid iteration on kubernetes.
+This works for production and development clusters, and for both local and remote clusters. Telepresence enables this workflow. The rest of this article will focus on Telepresence, which enables developers to do rapid iteration on Kubernetes. Telepresence also [works well with Skaffold](https://blog.getambassador.io/super-fast-inner-development-loops-for-kubernetes-with-skaffold-and-telepresence-1cd3e42ba665).
 
 ## Telepresence
 
