@@ -13,20 +13,57 @@ Readers should be able to follow your tutorial from the beginning to the end on 
 
 # Rapid Development on Kubernetes with Telepresence
 
-### Introduction
+## Introduction
 
 Application developers building microservices on Kubernetes quickly encounter two major problems that slow them down.
 
 * Slow feedback loops. Once a code change is made, it must be deployed to Kubernetes to be tested. This requires a container build, push to a container registry, and deployment to Kubernetes. This adds minutes to every code iteration.
 * Insufficient memory and CPU locally. Developers attempt to speed up the feedback loop by running Kubernetes locally with minikube or equivalent. However, resource-hungry applications quickly exceed the compute and memory available locally.
 
-In this guide, you will configure [Telepresence](https://www.getambassador.io/products/telepresence/), a Cloud-Native Computing Foundation project that [addresses these problems](https://www.getambassador.io/use-case/local-kubernetes-development/).
+This article begins with a brief review of the big-picture continuous development workflows for kubernetes. The focus then shifts to [Telepresence](https://www.getambassador.io/products/telepresence/), a Cloud-Native Computing Foundation project that [addresses these problems](https://www.getambassador.io/use-case/local-kubernetes-development/). Finally, we configure Telepresence step-by-step. The steps should work on any kubernetes setup.
+
+
+## Continuous Development Workflows - Big Picture
+
+An example workflow to go from code to deployment on kubernetes is as follows.
+* Commit code to a dev branch.
+* Build container image and associated manifests. This can be triggered manually or through a continuous integration (CI) pipeline.
+* Deploy manifests to kubernetes. The tool for this can be push-based (eg. Github Actions) or pull-based (eg. ArgoCD).
+* Test/Troubleshoot the new version of application.
+* Submit a pull request (PR) to release branch. Repeat. 
+
+That is a lot of steps to test a code change. It is fine for release branch, where the changes are through PR and rest of the process is automated. For developers, the whole process has been simplied for kubernetes. From a big picture standpoint, there are 3 different approaches for continuous deployment. Most users end up picking a mix of these.
+
+### CI/CD for Production
+This is almost universal in use. The names of the tools differ. The whole idea is that Git is the source of truth. Processing starts after code is committed to Git. Once container images are built, those are stored in registry. 
+![Production CI/CD pipeline](https://imgur.com/vlWprX2.jpg)
+
+Most users tend to use tools that suit them most. Note that some tools (eg. Flux, ArgoCD) are exclusively for kubernetes, whereas most developers have a mixed environment. If you are starting new on kubernetes, it makes sense to use a GitOps operator (eg. ArgoCD) for deployment.
+
+### CI/CD for Development
+Imagine if you're working off a development branch, and constantly testing code many times in a day. Waiting for the image to built and run is a waste of development time. What if your laptop becomes the source of truth for the code? Skaffold does the same. 
+
+![Developer CI/CD pipeline](https://imgur.com/O4pfbQO.jpg)
+
+Instead of a CI/CD pipeline running off Git commit, Skaffold allows you to manually or automatically build and deploy modified code to the kubernetes cluster. Moreover, it enables you to troubleshoot the new service without having to use another set of commands. 
+
+Note that you do not want to run skaffold on your production cluster, for the simple reason that the use case is targeted for development.
+
+
+### Rapid Iteration for Development
+With Skaffold, you still had to go through the process of building the image, and uploading to the cluster (and/or registry). Imagine if there was a way to not even upload the new image to the cluster. Instead if you could test the modified code by running the container image on your laptop. Basically your laptop becomes extended part of the cluster.
+
+![Developer Agile pipeline](https://imgur.com/XaREP4y.jpg)
+
+This works for production and development clusters, and for both local and remote clusters. Telepresence enables this workflow.
+
+The rest of this article will focus on Telepresence, which enables developers to do rapid iteration on kubernetes.
 
 ## Telepresence
 
 Telepresence is a Cloud-Native Computing Foundation project for fast efficient development on Kubernetes. With Telepresence, you 1) run your service locally, while you run the rest of your application in the cloud (2, 3).
 
-![Telepresence 2 architecture](https://imgur.com/0wkJiox)
+![Telepresence 2 architecture](https://imgur.com/0wkJiox.jpg)
 
 Telepresence creates a bi-directional network connection between your Kubernetes cluster and local workstation. This way, the service you’re running locally can communicate with services in the cluster, and vice versa.
 
@@ -45,6 +82,12 @@ To complete this tutorial, you will need:
 * A local development environment for Node.js. You can follow [How to Install Node.js and Create a Local Development Environment](https://www.digitalocean.com/community/tutorial_series/how-to-install-node-js-and-create-a-local-development-environment).
 
 Make sure you can perform a `kubectl` operation such as `kubectl get services` before proceeding.
+
+## Step 0 - A Kubernetes Cluster
+
+We will use DigitalOcean Kubernetes for the tutorial. You can substitute this step with your existing kubernetes cluster (local or cloud).
+
+Create a cluster by following the steps using [cloud UI](https://www.digitalocean.com/products/kubernetes/). Note that you will incur some charges towards running the cluster.
 
 ## Step 1 — Install Telepresence
 
